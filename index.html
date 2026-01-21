@@ -242,6 +242,12 @@
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
 
+        // Create offscreen canvas for static background
+        const bgCanvas = document.createElement('canvas');
+        bgCanvas.width = canvas.width;
+        bgCanvas.height = canvas.height;
+        const bgCtx = bgCanvas.getContext('2d');
+
         // Configuration
         const config = {
             numStars: 20,
@@ -271,56 +277,72 @@
         // Planet Earth properties
         const earthRadius = 75;
 
-        // Draw Planet Earth
-        function drawEarth(x, y) {
+        // Draw static background once to offscreen canvas
+        function drawStaticBackground() {
+            // Clear background canvas
+            bgCtx.fillStyle = '#000000';
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            // Draw static background stars
+            bgCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            backgroundStars.forEach(star => {
+                bgCtx.fillRect(star.x, star.y, star.size, star.size);
+            });
+
+            // Draw Planet Earth at center
+            drawEarthToContext(bgCtx, bgCanvas.width / 2, bgCanvas.height / 2);
+        }
+
+        // Draw Planet Earth to any context
+        function drawEarthToContext(context, x, y) {
             // Draw glow around Earth
-            const gradient = ctx.createRadialGradient(x, y, earthRadius * 0.8, x, y, earthRadius * 1.5);
+            const gradient = context.createRadialGradient(x, y, earthRadius * 0.8, x, y, earthRadius * 1.5);
             gradient.addColorStop(0, 'rgba(100, 180, 255, 0.3)');
             gradient.addColorStop(1, 'rgba(100, 180, 255, 0)');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(x, y, earthRadius * 1.5, 0, Math.PI * 2);
-            ctx.fill();
+            context.fillStyle = gradient;
+            context.beginPath();
+            context.arc(x, y, earthRadius * 1.5, 0, Math.PI * 2);
+            context.fill();
 
             // Draw Earth - ocean blue
-            ctx.fillStyle = '#1e3a8a';
-            ctx.beginPath();
-            ctx.arc(x, y, earthRadius, 0, Math.PI * 2);
-            ctx.fill();
+            context.fillStyle = '#1e3a8a';
+            context.beginPath();
+            context.arc(x, y, earthRadius, 0, Math.PI * 2);
+            context.fill();
 
             // Draw continents (simplified)
-            ctx.fillStyle = '#22c55e';
+            context.fillStyle = '#22c55e';
 
             // Continent 1
-            ctx.beginPath();
-            ctx.arc(x + 20, y - 15, 25, 0, Math.PI * 2);
-            ctx.fill();
+            context.beginPath();
+            context.arc(x + 20, y - 15, 25, 0, Math.PI * 2);
+            context.fill();
 
             // Continent 2
-            ctx.beginPath();
-            ctx.arc(x - 25, y + 10, 20, 0, Math.PI * 2);
-            ctx.fill();
+            context.beginPath();
+            context.arc(x - 25, y + 10, 20, 0, Math.PI * 2);
+            context.fill();
 
             // Continent 3
-            ctx.beginPath();
-            ctx.arc(x + 10, y + 30, 15, 0, Math.PI * 2);
-            ctx.fill();
+            context.beginPath();
+            context.arc(x + 10, y + 30, 15, 0, Math.PI * 2);
+            context.fill();
 
             // Add white clouds
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.beginPath();
-            ctx.arc(x + 30, y + 5, 12, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(x - 20, y - 20, 10, 0, Math.PI * 2);
-            ctx.fill();
+            context.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            context.beginPath();
+            context.arc(x + 30, y + 5, 12, 0, Math.PI * 2);
+            context.fill();
+            context.beginPath();
+            context.arc(x - 20, y - 20, 10, 0, Math.PI * 2);
+            context.fill();
 
             // Add atmosphere glow
-            ctx.strokeStyle = 'rgba(100, 180, 255, 0.5)';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(x, y, earthRadius + 2, 0, Math.PI * 2);
-            ctx.stroke();
+            context.strokeStyle = 'rgba(100, 180, 255, 0.5)';
+            context.lineWidth = 3;
+            context.beginPath();
+            context.arc(x, y, earthRadius + 2, 0, Math.PI * 2);
+            context.stroke();
         }
 
         // Star class
@@ -407,18 +429,8 @@
         // Animation loop
         function animate(currentTime) {
             if (!isPaused) {
-                // Clear canvas completely
-                ctx.fillStyle = '#000000';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-                // Draw static background stars (no twinkling for performance)
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-                backgroundStars.forEach(star => {
-                    ctx.fillRect(star.x, star.y, star.size, star.size);
-                });
-
-                // Draw Planet Earth at center
-                drawEarth(canvas.width / 2, canvas.height / 2);
+                // Copy pre-rendered background (much faster than redrawing!)
+                ctx.drawImage(bgCanvas, 0, 0);
 
                 // Spawn new stars
                 if (currentTime - lastSpawnTime > spawnInterval && stars.length < config.numStars) {
@@ -512,6 +524,8 @@
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+            bgCanvas.width = canvas.width;
+            bgCanvas.height = canvas.height;
 
             // Regenerate background stars
             backgroundStars.length = 0;
@@ -524,7 +538,13 @@
                     twinkleSpeed: Math.random() * 0.02
                 });
             }
+
+            // Redraw static background
+            drawStaticBackground();
         });
+
+        // Draw initial static background
+        drawStaticBackground();
 
         // Start animation
         requestAnimationFrame(animate);
