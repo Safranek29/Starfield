@@ -376,58 +376,22 @@
             }
 
             draw() {
-                // Draw smooth gradient trail behind ship
-                const tailStartX = this.x - Math.cos(this.angle) * 10;
-                const tailStartY = this.y - Math.sin(this.angle) * 10;
+                // Draw simple gradient trail behind ship
                 const tailEndX = this.x - Math.cos(this.angle) * config.tailLength;
                 const tailEndY = this.y - Math.sin(this.angle) * config.tailLength;
 
-                // Create gradient for trail
-                const gradient = ctx.createLinearGradient(
-                    this.x,
-                    this.y,
-                    tailEndX,
-                    tailEndY
-                );
-                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity * 0.8})`);
-                gradient.addColorStop(0.3, `rgba(78, 205, 196, ${this.opacity * 0.5})`);
+                // Simplified trail - single gradient line
+                const gradient = ctx.createLinearGradient(this.x, this.y, tailEndX, tailEndY);
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity * 0.7})`);
                 gradient.addColorStop(1, 'rgba(78, 205, 196, 0)');
 
-                // Draw trail as smooth line
-                ctx.save();
-                ctx.globalAlpha = this.opacity;
                 ctx.strokeStyle = gradient;
-                ctx.lineWidth = 8;
+                ctx.lineWidth = 6;
                 ctx.lineCap = 'round';
                 ctx.beginPath();
-                ctx.moveTo(tailStartX, tailStartY);
+                ctx.moveTo(this.x, this.y);
                 ctx.lineTo(tailEndX, tailEndY);
                 ctx.stroke();
-                ctx.restore();
-
-                // Draw radial glow behind ship
-                const glowGradient = ctx.createRadialGradient(
-                    this.x - Math.cos(this.angle) * 15,
-                    this.y - Math.sin(this.angle) * 15,
-                    0,
-                    this.x - Math.cos(this.angle) * 15,
-                    this.y - Math.sin(this.angle) * 15,
-                    config.tailLength * 0.5
-                );
-                glowGradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity * 0.4})`);
-                glowGradient.addColorStop(0.5, `rgba(78, 205, 196, ${this.opacity * 0.2})`);
-                glowGradient.addColorStop(1, 'rgba(78, 205, 196, 0)');
-
-                ctx.fillStyle = glowGradient;
-                ctx.beginPath();
-                ctx.arc(
-                    this.x - Math.cos(this.angle) * 15,
-                    this.y - Math.sin(this.angle) * 15,
-                    config.tailLength * 0.5,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
 
                 // Draw the main ship
                 ctx.save();
@@ -437,19 +401,7 @@
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#ffffff';
                 ctx.fillText('🚀', 0, 0);
-                ctx.restore();
-
-                // Add front glow effect
-                ctx.save();
-                ctx.globalAlpha = this.opacity * 0.5;
-                ctx.shadowBlur = 15;
-                ctx.shadowColor = '#4ecdc4';
-                ctx.fillStyle = '#4ecdc4';
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
-                ctx.fill();
                 ctx.restore();
             }
         }
