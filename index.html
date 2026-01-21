@@ -376,42 +376,31 @@
             }
 
             draw() {
-                // Draw multiple tail segments with decreasing opacity for smooth fade
-                const segments = 3;
-                const segmentLength = config.tailLength / segments;
+                // Draw simple trail - single line
+                const tailEndX = this.x - Math.cos(this.angle) * config.tailLength;
+                const tailEndY = this.y - Math.sin(this.angle) * config.tailLength;
 
-                for (let i = 0; i < segments; i++) {
-                    const startDist = i * segmentLength;
-                    const endDist = (i + 1) * segmentLength;
-                    const segmentOpacity = this.opacity * (1 - (i / segments)) * 0.5;
-
-                    const startX = this.x - Math.cos(this.angle) * startDist;
-                    const startY = this.y - Math.sin(this.angle) * startDist;
-                    const endX = this.x - Math.cos(this.angle) * endDist;
-                    const endY = this.y - Math.sin(this.angle) * endDist;
-
-                    ctx.globalAlpha = segmentOpacity;
-                    ctx.strokeStyle = '#4ecdc4';
-                    ctx.lineWidth = 4;
-                    ctx.lineCap = 'round';
-                    ctx.beginPath();
-                    ctx.moveTo(startX, startY);
-                    ctx.lineTo(endX, endY);
-                    ctx.stroke();
-                }
-
-                ctx.globalAlpha = 1;
+                ctx.globalAlpha = this.opacity * 0.4;
+                ctx.strokeStyle = '#4ecdc4';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(tailEndX, tailEndY);
+                ctx.stroke();
 
                 // Draw the main ship
-                ctx.save();
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
                 ctx.globalAlpha = this.opacity;
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
+                ctx.save();
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
                 ctx.fillText('🚀', 0, 0);
                 ctx.restore();
+
+                ctx.globalAlpha = 1;
             }
         }
 
@@ -422,17 +411,10 @@
                 ctx.fillStyle = '#000000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Draw twinkling background stars
+                // Draw static background stars (no twinkling for performance)
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
                 backgroundStars.forEach(star => {
-                    star.opacity += star.twinkleSpeed;
-                    if (star.opacity > 1 || star.opacity < 0.2) {
-                        star.twinkleSpeed = -star.twinkleSpeed;
-                    }
-
-                    ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
-                    ctx.beginPath();
-                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillRect(star.x, star.y, star.size, star.size);
                 });
 
                 // Draw Planet Earth at center
