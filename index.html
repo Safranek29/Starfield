@@ -265,101 +265,6 @@
         let lastSpawnTime = 0;
         const spawnInterval = 100; // milliseconds between spawns
 
-        // Millennium Falcon SVG Path (scaled for 70px size)
-        function drawMillenniumFalcon(ctx, x, y, angle, opacity, size = 70) {
-            ctx.save();
-            ctx.translate(x, y);
-            ctx.rotate(angle);
-            ctx.globalAlpha = opacity;
-
-            const scale = size / 70;
-            ctx.scale(scale, scale);
-
-            // Main saucer body (iconic circular shape)
-            ctx.fillStyle = '#c0c0c0';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 35, 30, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Darker inner circle detail
-            ctx.fillStyle = '#808080';
-            ctx.beginPath();
-            ctx.ellipse(0, 0, 25, 20, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Cockpit (offset to the right side)
-            ctx.fillStyle = '#4ecdc4';
-            ctx.beginPath();
-            ctx.arc(20, 0, 8, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Cockpit window glow
-            ctx.fillStyle = '#6ee7de';
-            ctx.beginPath();
-            ctx.arc(20, 0, 5, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Front mandibles (the iconic fork shape)
-            ctx.fillStyle = '#a0a0a0';
-
-            // Top mandible
-            ctx.beginPath();
-            ctx.moveTo(30, -5);
-            ctx.lineTo(45, -12);
-            ctx.lineTo(43, -8);
-            ctx.lineTo(30, -2);
-            ctx.closePath();
-            ctx.fill();
-
-            // Bottom mandible
-            ctx.beginPath();
-            ctx.moveTo(30, 5);
-            ctx.lineTo(45, 12);
-            ctx.lineTo(43, 8);
-            ctx.lineTo(30, 2);
-            ctx.closePath();
-            ctx.fill();
-
-            // Mandible gap (darker)
-            ctx.fillStyle = '#606060';
-            ctx.beginPath();
-            ctx.moveTo(30, -2);
-            ctx.lineTo(43, -8);
-            ctx.lineTo(43, 8);
-            ctx.lineTo(30, 2);
-            ctx.closePath();
-            ctx.fill();
-
-            // Engine glow circles (back of ship)
-            ctx.fillStyle = 'rgba(78, 205, 196, 0.8)';
-            ctx.beginPath();
-            ctx.arc(-25, -10, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.beginPath();
-            ctx.arc(-25, 10, 4, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Detail panels on top
-            ctx.strokeStyle = '#707070';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(-15, -15);
-            ctx.lineTo(10, -15);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(-15, 15);
-            ctx.lineTo(10, 15);
-            ctx.stroke();
-
-            // Radar dish (small circle on top)
-            ctx.fillStyle = '#909090';
-            ctx.beginPath();
-            ctx.arc(-10, -5, 3, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.restore();
-        }
-
         // Star class
         class Star {
             constructor() {
@@ -375,20 +280,36 @@
                 this.y = centerY + Math.sin(this.angle) * spawnOffset;
 
                 // Velocity based on angle and speed
-                const baseSpeed = 2.5;
-                this.vx = Math.cos(this.angle) * baseSpeed;
-                this.vy = Math.sin(this.angle) * baseSpeed;
+                const baseSpeed = 2;
+                this.vx = Math.cos(this.angle) * baseSpeed * config.speed;
+                this.vy = Math.sin(this.angle) * baseSpeed * config.speed;
 
                 // Appearance
                 this.opacity = 1;
-                this.size = 70; // Medium-large Millennium Falcon
-                this.rotation = this.angle; // Face direction of travel
+                this.size = 12;
+                this.trail = [];
+                this.maxTrailLength = Math.floor(config.tailLength / 5);
+
+                // Millennium Falcon emoji
+                this.symbol = '🚀';
+                this.rotation = this.angle;
             }
 
             update() {
                 // Update position
                 this.x += this.vx * config.speed;
                 this.y += this.vy * config.speed;
+
+                // Add to trail
+                this.trail.push({ x: this.x, y: this.y, opacity: this.opacity });
+
+                // Limit trail length
+                if (this.trail.length > this.maxTrailLength) {
+                    this.trail.shift();
+                }
+
+                // Update trail based on current tail length setting
+                this.maxTrailLength = Math.floor(config.tailLength / 5);
 
                 // Calculate distance from center for fade out
                 const centerX = canvas.width / 2;
@@ -399,71 +320,66 @@
                 const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
 
                 // Fade out as approaching edges
-                if (distance > maxDistance * 0.7) {
-                    this.opacity = 1 - ((distance - maxDistance * 0.7) / (maxDistance * 0.3));
+                if (distance > maxDistance * 0.6) {
+                    this.opacity = 1 - ((distance - maxDistance * 0.6) / (maxDistance * 0.4));
                 }
 
-                // Check if off screen or faded out
-                const margin = 150;
+                // Check if off screen
+                const margin = 100;
                 return this.x > -margin &&
                        this.x < canvas.width + margin &&
                        this.y > -margin &&
                        this.y < canvas.height + margin &&
-                       this.opacity > 0.01;
+                       this.opacity > 0;
             }
 
             draw() {
-                // Draw motion blur trail that moves WITH the ship
-                // This creates a glow trail attached to the ship, not a persistent path
-                const tailSegments = Math.floor(config.tailLength / 10);
+                // Draw trail
+                if (this.trail.length > 1) {
+                    for (let i = 0; i < this.trail.length - 1; i++) {
+                        const point = this.trail[i];
+                        const nextPoint = this.trail[i + 1];
+                        const trailOpacity = (i / this.trail.length) * this.opacity * 0.5;
 
-                for (let i = 0; i < tailSegments; i++) {
-                    const trailOffset = (i + 1) * 10;
-                    const trailX = this.x - Math.cos(this.angle) * trailOffset;
-                    const trailY = this.y - Math.sin(this.angle) * trailOffset;
-                    const trailOpacity = this.opacity * (1 - i / tailSegments) * 0.4;
-                    const trailSize = this.size * (1 - i / tailSegments * 0.5);
+                        ctx.beginPath();
+                        ctx.moveTo(point.x, point.y);
+                        ctx.lineTo(nextPoint.x, nextPoint.y);
 
-                    // Draw semi-transparent falcon images behind for motion blur
-                    drawMillenniumFalcon(ctx, trailX, trailY, this.rotation, trailOpacity, trailSize);
+                        // Gradient trail
+                        const gradient = ctx.createLinearGradient(point.x, point.y, nextPoint.x, nextPoint.y);
+                        gradient.addColorStop(0, `rgba(78, 205, 196, ${trailOpacity * 0.3})`);
+                        gradient.addColorStop(1, `rgba(255, 255, 255, ${trailOpacity})`);
+
+                        ctx.strokeStyle = gradient;
+                        ctx.lineWidth = 2 + (i / this.trail.length) * 3;
+                        ctx.lineCap = 'round';
+                        ctx.stroke();
+                    }
                 }
 
-                // Draw gradient glow behind ship
-                const gradient = ctx.createRadialGradient(
-                    this.x - Math.cos(this.angle) * 20,
-                    this.y - Math.sin(this.angle) * 20,
-                    0,
-                    this.x - Math.cos(this.angle) * 20,
-                    this.y - Math.sin(this.angle) * 20,
-                    config.tailLength
-                );
-                gradient.addColorStop(0, `rgba(78, 205, 196, ${this.opacity * 0.6})`);
-                gradient.addColorStop(0.5, `rgba(255, 255, 255, ${this.opacity * 0.3})`);
-                gradient.addColorStop(1, 'rgba(78, 205, 196, 0)');
-
-                ctx.fillStyle = gradient;
-                ctx.beginPath();
-                ctx.arc(
-                    this.x - Math.cos(this.angle) * 20,
-                    this.y - Math.sin(this.angle) * 20,
-                    config.tailLength,
-                    0,
-                    Math.PI * 2
-                );
-                ctx.fill();
-
-                // Draw the main Millennium Falcon
-                drawMillenniumFalcon(ctx, this.x, this.y, this.rotation, this.opacity, this.size);
-
-                // Add front glow effect
+                // Draw Millennium Falcon
                 ctx.save();
-                ctx.globalAlpha = this.opacity * 0.4;
-                ctx.shadowBlur = 20;
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.globalAlpha = this.opacity;
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.symbol, 0, 0);
+                ctx.restore();
+
+                // Add glow effect
+                ctx.save();
+                ctx.globalAlpha = this.opacity * 0.5;
+                ctx.shadowBlur = 10;
                 ctx.shadowColor = '#4ecdc4';
+                ctx.translate(this.x, this.y);
+                ctx.rotate(this.rotation);
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#4ecdc4';
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, 10, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.fillText(this.symbol, 0, 0);
                 ctx.restore();
             }
         }
@@ -471,8 +387,8 @@
         // Animation loop
         function animate(currentTime) {
             if (!isPaused) {
-                // COMPLETELY clear canvas each frame (no trails left behind)
-                ctx.fillStyle = '#0a0a0f';
+                // Clear canvas with slight trail effect for smoother animation
+                ctx.fillStyle = 'rgba(10, 10, 15, 0.3)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // Spawn new stars
@@ -486,13 +402,12 @@
                     stars.pop();
                 }
 
-                // Update and draw stars - filter removes dead stars completely
+                // Update and draw stars
                 stars = stars.filter(star => {
                     const alive = star.update();
                     if (alive) {
                         star.draw();
                     }
-                    // Star and its trail are completely removed from memory when filtered out
                     return alive;
                 });
             }
