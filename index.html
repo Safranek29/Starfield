@@ -14,23 +14,14 @@
         body {
             overflow: hidden;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0f 100%);
+            background: #000000;
         }
 
         #canvas {
             display: block;
             width: 100vw;
             height: 100vh;
-            background:
-                radial-gradient(2px 2px at 20% 30%, white, transparent),
-                radial-gradient(2px 2px at 60% 70%, white, transparent),
-                radial-gradient(1px 1px at 50% 50%, white, transparent),
-                radial-gradient(1px 1px at 80% 10%, white, transparent),
-                radial-gradient(2px 2px at 90% 60%, white, transparent),
-                radial-gradient(1px 1px at 33% 80%, white, transparent),
-                radial-gradient(1px 1px at 15% 90%, white, transparent);
-            background-size: 200% 200%;
-            background-position: 0% 0%;
+            background: #000000;
         }
 
         .control-panel {
@@ -235,7 +226,7 @@
                 <span class="control-value" id="spawnRadiusValue">0px</span>
             </div>
             <input type="range" id="spawnRadius" min="0" max="200" value="0">
-            <div class="description">Distance from center spawn point</div>
+            <div class="description">Distance from Earth's edge</div>
         </div>
 
         <div class="button-group">
@@ -263,7 +254,74 @@
         let stars = [];
         let isPaused = false;
         let lastSpawnTime = 0;
-        const spawnInterval = 100; // milliseconds between spawns
+        const spawnInterval = 100;
+
+        // Background stars
+        const backgroundStars = [];
+        for (let i = 0; i < 200; i++) {
+            backgroundStars.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                size: Math.random() * 2,
+                opacity: Math.random(),
+                twinkleSpeed: Math.random() * 0.02
+            });
+        }
+
+        // Planet Earth properties
+        const earthRadius = 75;
+
+        // Draw Planet Earth
+        function drawEarth(x, y) {
+            // Draw glow around Earth
+            const gradient = ctx.createRadialGradient(x, y, earthRadius * 0.8, x, y, earthRadius * 1.5);
+            gradient.addColorStop(0, 'rgba(100, 180, 255, 0.3)');
+            gradient.addColorStop(1, 'rgba(100, 180, 255, 0)');
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, earthRadius * 1.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Earth - ocean blue
+            ctx.fillStyle = '#1e3a8a';
+            ctx.beginPath();
+            ctx.arc(x, y, earthRadius, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw continents (simplified)
+            ctx.fillStyle = '#22c55e';
+
+            // Continent 1
+            ctx.beginPath();
+            ctx.arc(x + 20, y - 15, 25, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Continent 2
+            ctx.beginPath();
+            ctx.arc(x - 25, y + 10, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Continent 3
+            ctx.beginPath();
+            ctx.arc(x + 10, y + 30, 15, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Add white clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + 30, y + 5, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(x - 20, y - 20, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Add atmosphere glow
+            ctx.strokeStyle = 'rgba(100, 180, 255, 0.5)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(x, y, earthRadius + 2, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         // Star class
         class Star {
@@ -274,24 +332,19 @@
                 // Random angle for 360-degree dispersion
                 this.angle = Math.random() * Math.PI * 2;
 
-                // Spawn position with radius offset
-                const spawnOffset = config.spawnRadius;
-                this.x = centerX + Math.cos(this.angle) * spawnOffset;
-                this.y = centerY + Math.sin(this.angle) * spawnOffset;
+                // Spawn from Earth's edge plus spawn radius
+                const spawnDistance = earthRadius + config.spawnRadius;
+                this.x = centerX + Math.cos(this.angle) * spawnDistance;
+                this.y = centerY + Math.sin(this.angle) * spawnDistance;
 
                 // Velocity based on angle and speed
-                const baseSpeed = 2;
-                this.vx = Math.cos(this.angle) * baseSpeed * config.speed;
-                this.vy = Math.sin(this.angle) * baseSpeed * config.speed;
+                const baseSpeed = 2.5;
+                this.vx = Math.cos(this.angle) * baseSpeed;
+                this.vy = Math.sin(this.angle) * baseSpeed;
 
                 // Appearance
                 this.opacity = 1;
-                this.size = 12;
-                this.trail = [];
-                this.maxTrailLength = Math.floor(config.tailLength / 5);
-
-                // Millennium Falcon emoji
-                this.symbol = '🚀';
+                this.size = 16;
                 this.rotation = this.angle;
             }
 
@@ -299,17 +352,6 @@
                 // Update position
                 this.x += this.vx * config.speed;
                 this.y += this.vy * config.speed;
-
-                // Add to trail
-                this.trail.push({ x: this.x, y: this.y, opacity: this.opacity });
-
-                // Limit trail length
-                if (this.trail.length > this.maxTrailLength) {
-                    this.trail.shift();
-                }
-
-                // Update trail based on current tail length setting
-                this.maxTrailLength = Math.floor(config.tailLength / 5);
 
                 // Calculate distance from center for fade out
                 const centerX = canvas.width / 2;
@@ -320,44 +362,66 @@
                 const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
 
                 // Fade out as approaching edges
-                if (distance > maxDistance * 0.6) {
-                    this.opacity = 1 - ((distance - maxDistance * 0.6) / (maxDistance * 0.4));
+                if (distance > maxDistance * 0.7) {
+                    this.opacity = 1 - ((distance - maxDistance * 0.7) / (maxDistance * 0.3));
                 }
 
-                // Check if off screen
-                const margin = 100;
+                // Check if off screen or faded out
+                const margin = 150;
                 return this.x > -margin &&
                        this.x < canvas.width + margin &&
                        this.y > -margin &&
                        this.y < canvas.height + margin &&
-                       this.opacity > 0;
+                       this.opacity > 0.01;
             }
 
             draw() {
-                // Draw trail
-                if (this.trail.length > 1) {
-                    for (let i = 0; i < this.trail.length - 1; i++) {
-                        const point = this.trail[i];
-                        const nextPoint = this.trail[i + 1];
-                        const trailOpacity = (i / this.trail.length) * this.opacity * 0.5;
+                // Draw motion blur trail that moves WITH the ship
+                const tailSegments = Math.floor(config.tailLength / 10);
 
-                        ctx.beginPath();
-                        ctx.moveTo(point.x, point.y);
-                        ctx.lineTo(nextPoint.x, nextPoint.y);
+                for (let i = 0; i < tailSegments; i++) {
+                    const trailOffset = (i + 1) * 10;
+                    const trailX = this.x - Math.cos(this.angle) * trailOffset;
+                    const trailY = this.y - Math.sin(this.angle) * trailOffset;
+                    const trailOpacity = this.opacity * (1 - i / tailSegments) * 0.5;
 
-                        // Gradient trail
-                        const gradient = ctx.createLinearGradient(point.x, point.y, nextPoint.x, nextPoint.y);
-                        gradient.addColorStop(0, `rgba(78, 205, 196, ${trailOpacity * 0.3})`);
-                        gradient.addColorStop(1, `rgba(255, 255, 255, ${trailOpacity})`);
-
-                        ctx.strokeStyle = gradient;
-                        ctx.lineWidth = 2 + (i / this.trail.length) * 3;
-                        ctx.lineCap = 'round';
-                        ctx.stroke();
-                    }
+                    ctx.save();
+                    ctx.translate(trailX, trailY);
+                    ctx.rotate(this.rotation);
+                    ctx.globalAlpha = trailOpacity;
+                    ctx.font = `${this.size}px Arial`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText('🚀', 0, 0);
+                    ctx.restore();
                 }
 
-                // Draw Millennium Falcon
+                // Draw gradient glow behind ship
+                const gradient = ctx.createRadialGradient(
+                    this.x - Math.cos(this.angle) * 15,
+                    this.y - Math.sin(this.angle) * 15,
+                    0,
+                    this.x - Math.cos(this.angle) * 15,
+                    this.y - Math.sin(this.angle) * 15,
+                    config.tailLength * 0.8
+                );
+                gradient.addColorStop(0, `rgba(255, 255, 255, ${this.opacity * 0.6})`);
+                gradient.addColorStop(0.5, `rgba(78, 205, 196, ${this.opacity * 0.3})`);
+                gradient.addColorStop(1, 'rgba(78, 205, 196, 0)');
+
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(
+                    this.x - Math.cos(this.angle) * 15,
+                    this.y - Math.sin(this.angle) * 15,
+                    config.tailLength * 0.8,
+                    0,
+                    Math.PI * 2
+                );
+                ctx.fill();
+
+                // Draw the main ship
                 ctx.save();
                 ctx.translate(this.x, this.y);
                 ctx.rotate(this.rotation);
@@ -365,21 +429,19 @@
                 ctx.font = `${this.size}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(this.symbol, 0, 0);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText('🚀', 0, 0);
                 ctx.restore();
 
-                // Add glow effect
+                // Add front glow effect
                 ctx.save();
-                ctx.globalAlpha = this.opacity * 0.5;
-                ctx.shadowBlur = 10;
+                ctx.globalAlpha = this.opacity * 0.6;
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = '#4ecdc4';
-                ctx.translate(this.x, this.y);
-                ctx.rotate(this.rotation);
-                ctx.font = `${this.size}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#4ecdc4';
-                ctx.fillText(this.symbol, 0, 0);
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.restore();
             }
         }
@@ -387,9 +449,25 @@
         // Animation loop
         function animate(currentTime) {
             if (!isPaused) {
-                // Clear canvas with slight trail effect for smoother animation
-                ctx.fillStyle = 'rgba(10, 10, 15, 0.3)';
+                // Clear canvas completely
+                ctx.fillStyle = '#000000';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // Draw twinkling background stars
+                backgroundStars.forEach(star => {
+                    star.opacity += star.twinkleSpeed;
+                    if (star.opacity > 1 || star.opacity < 0.2) {
+                        star.twinkleSpeed = -star.twinkleSpeed;
+                    }
+
+                    ctx.fillStyle = `rgba(255, 255, 255, ${star.opacity})`;
+                    ctx.beginPath();
+                    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+
+                // Draw Planet Earth at center
+                drawEarth(canvas.width / 2, canvas.height / 2);
 
                 // Spawn new stars
                 if (currentTime - lastSpawnTime > spawnInterval && stars.length < config.numStars) {
@@ -431,7 +509,6 @@
         const toggleBtn = document.getElementById('toggleBtn');
         const controlPanel = document.getElementById('controlPanel');
 
-        // Update configuration
         numStarsInput.addEventListener('input', (e) => {
             config.numStars = parseInt(e.target.value);
             numStarsValue.textContent = config.numStars;
@@ -452,13 +529,11 @@
             spawnRadiusValue.textContent = config.spawnRadius + 'px';
         });
 
-        // Pause/Play toggle
         pauseBtn.addEventListener('click', () => {
             isPaused = !isPaused;
             pauseBtn.textContent = isPaused ? 'Play' : 'Pause';
         });
 
-        // Reset to defaults
         resetBtn.addEventListener('click', () => {
             config.numStars = 20;
             config.speed = 1.0;
@@ -478,16 +553,26 @@
             stars = [];
         });
 
-        // Toggle control panel
         toggleBtn.addEventListener('click', () => {
             controlPanel.classList.toggle('collapsed');
             toggleBtn.textContent = controlPanel.classList.contains('collapsed') ? '☰' : '✕';
         });
 
-        // Handle window resize
         window.addEventListener('resize', () => {
             canvas.width = window.innerWidth;
             canvas.height = window.innerHeight;
+
+            // Regenerate background stars
+            backgroundStars.length = 0;
+            for (let i = 0; i < 200; i++) {
+                backgroundStars.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    size: Math.random() * 2,
+                    opacity: Math.random(),
+                    twinkleSpeed: Math.random() * 0.02
+                });
+            }
         });
 
         // Start animation
